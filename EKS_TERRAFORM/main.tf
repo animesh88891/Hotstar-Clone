@@ -29,7 +29,7 @@ data "aws_vpc" "default" {
   default = true
 }
 
-# Get public subnets for the VPC, filtering out the unsupported availability zone
+# Get public subnets for the VPC
 data "aws_subnets" "public" {
   filter {
     name   = "vpc-id"
@@ -37,15 +37,18 @@ data "aws_subnets" "public" {
   }
 }
 
-# Define a filtered list of subnet IDs that exclude the unsupported availability zone
-locals {
-  supported_subnet_ids = [for subnet in data.aws_subnets.public.ids : subnet if substr(data.aws_subnet.subnet.availability_zone, -1) != "e"]
-}
-
 # Fetch details for each subnet to filter out unsupported AZs
 data "aws_subnet" "subnet" {
   count = length(data.aws_subnets.public.ids)
   id    = data.aws_subnets.public.ids[count.index]
+}
+
+# Define a filtered list of subnet IDs that only include the supported availability zones
+locals {
+  supported_subnet_ids = [
+    for subnet in data.aws_subnet.subnet :
+    subnet.id if subnet.availability_zone == "us-east-1a" || subnet.availability_zone == "us-east-1b"
+  ]
 }
 
 # Provision the EKS cluster
